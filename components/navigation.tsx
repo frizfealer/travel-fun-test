@@ -1,5 +1,7 @@
+"use client"
+
 import Link from "next/link"
-import { useItinerary } from "@/contexts/ItineraryContext"
+import { useItinerary } from "../contexts/ItineraryContext"
 interface NavigationProps {
   activeTab: "explore" | "schedule"
 }
