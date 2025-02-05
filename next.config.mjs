@@ -15,11 +15,27 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'places.googleapis.com',
+        port: '',
+        pathname: '/v1/places/**',
+      },
+    ],
   },
   experimental: {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
+  },
+  rewrites: async () => {
+    return [
+      {
+        source: '/api/py/:path*',
+        destination: 'http://127.0.0.1:8001/api/py/:path*',
+      },
+    ]
   },
 }
 

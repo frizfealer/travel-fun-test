@@ -7,36 +7,32 @@ import { useRouter } from "next/navigation"
 interface ExperienceCardProps {
   id: string
   title: string
-  imageType: string
-  rating?: string
-  reviews?: number
+  description?: string
+  imageType: "food" | "photo" | "perfume" | "craft" | "tour"
   duration: string
   price: number
-  isNew?: boolean
+  isNew: boolean
   city: string
   category: string
-  addToItinerary: (experience: {
-    id: string
-    title: string
-    duration: string
-    price: number
-    city: string
-    category: string
-    time: string
-  }) => void
+  rating?: number
+  imageUrl?: string
+  location?: string
+  addToItinerary: (experience: any) => void
 }
 
 export default function ExperienceCard({
   id,
   title,
+  description,
   imageType,
-  rating,
-  reviews,
   duration,
   price,
   isNew,
   city,
   category,
+  rating,
+  imageUrl,
+  location,
   addToItinerary,
 }: ExperienceCardProps) {
   const router = useRouter()
@@ -45,8 +41,7 @@ export default function ExperienceCard({
     const params = new URLSearchParams({
       title,
       imageType,
-      rating: rating || "",
-      reviews: reviews?.toString() || "",
+      rating: rating?.toString() || "",
       duration,
       price: price.toString(),
       isNew: isNew ? "true" : "false",
@@ -80,7 +75,7 @@ export default function ExperienceCard({
     <div className="group relative flex cursor-pointer flex-col gap-2" onClick={handleClick}>
       <div className="relative aspect-[3/2] w-full overflow-hidden rounded-lg bg-secondary">
         <Image
-          src={getPlaceholderImage(imageType) || "/placeholder.svg"}
+          src={imageUrl || getPlaceholderImage(imageType)}
           alt={title}
           className="object-cover transition-transform group-hover:scale-105"
           fill
@@ -122,16 +117,17 @@ export default function ExperienceCard({
             <span className="font-medium">New</span>
             <span className="text-gray-600">·</span>
           </div>
-        ) : rating ? (
+        ) : rating && (
           <div className="flex items-center gap-2">
-            <span>★ {rating}</span>
-            <span className="text-gray-600">({reviews})</span>
+            <span>★ {rating.toFixed(1)}</span>
             <span className="text-gray-600">·</span>
           </div>
-        ) : null}
+        )}
         <span>{duration}</span>
       </div>
       <h3 className="font-medium">{title}</h3>
+      {description && <p className="text-sm text-gray-600 line-clamp-2">{description}</p>}
+      {location && <p className="text-sm text-gray-500">{location}</p>}
       <p>From ${price} / person</p>
     </div>
   )

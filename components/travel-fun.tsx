@@ -33,10 +33,28 @@ const categories = {
   "san-francisco": ["Tech", "Food", "Nature", "LGBTQ+ Culture"],
 }
 
+interface Recommendation {
+  name: string
+  duration: number
+  peopleCount: number
+  cost: number
+  category: string
+  agenda: string
+  time: string
+  rating: number
+  regular_opening_hours: string
+  formatted_address: string
+  website_uri: string
+  editorial_summary: string
+  photos: string[]
+}
+
 export default function TravelFun() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [showExperiences, setShowExperiences] = useState(false)
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const { addToItinerary } = useItinerary()
 
@@ -44,6 +62,7 @@ export default function TravelFun() {
     setSelectedCity(value)
     setSelectedCategories([])
     setShowExperiences(false)
+    setRecommendations([])
   }
 
   const handleCategoryToggle = (category: string) => {
@@ -52,8 +71,43 @@ export default function TravelFun() {
     )
   }
 
-  const handleFunExperiences = () => {
-    setShowExperiences(true)
+  const handleFunExperiences = async () => {
+    if (!selectedCity || selectedCategories.length === 0) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch('http://localhost:8001/api/py/recommendations', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          city: cities.find(city => city.value === selectedCity)?.label,
+          n_recommendations: 4,
+          people_count: 2,
+          budget: 1000,
+          interests: selectedCategories.join(', ')
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response status:', response.status);
+        console.error('Response text:', errorText);
+        throw new Error(`Failed to fetch recommendations: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Received data:', data);
+      setRecommendations(data || []);
+      setShowExperiences(true);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+      alert('Failed to fetch recommendations. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -87,28 +141,34 @@ export default function TravelFun() {
 
         <Button
           onClick={handleFunExperiences}
-          disabled={!selectedCity || selectedCategories.length === 0}
+          disabled={!selectedCity || selectedCategories.length === 0 || isLoading}
           className="w-full"
         >
-          Find Fun Experiences
+          {isLoading ? "Loading..." : "Find Fun Experiences"}
         </Button>
       </div>
 
       {showExperiences && selectedCity && (
         <div className="space-y-4">
-          <h2 className="text-2xl font-semibold">{selectedCategories.length} categories selected</h2>
+          <h2 className="text-2xl font-semibold">
+            {recommendations.length} experiences found
+          </h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {selectedCategories.map((category, index) => (
+            {recommendations.map((recommendation, index) => (
               <ExperienceCard
-                key={index}
-                id={`${selectedCity}-${category}-${index}`}
-                title={`${category} Experience in ${cities.find((city) => city.value === selectedCity)?.label}`}
-                imageType={category.toLowerCase() as "food" | "photo" | "perfume" | "craft" | "tour"}
-                duration="2-3 hours"
-                price={Math.floor(Math.random() * 100) + 50}
-                isNew={Math.random() > 0.5}
+                key={`${selectedCity}-${recommendation.name}-${index}`}
+                id={`${selectedCity}-${recommendation.name}-${index}`}
+                title={recommendation.name}
+                description={recommendation.editorial_summary}
+                imageType={recommendation.category.toLowerCase() as "food" | "photo" | "perfume" | "craft" | "tour"}
+                duration={`${recommendation.duration} hours`}
+                price={recommendation.cost}
+                isNew={false}
                 city={cities.find((city) => city.value === selectedCity)?.label || ""}
-                category={category}
+                category={recommendation.category}
+                rating={recommendation.rating}
+                imageUrl={recommendation.photos?.[0]}
+                location={recommendation.formatted_address}
                 addToItinerary={addToItinerary}
               />
             ))}
