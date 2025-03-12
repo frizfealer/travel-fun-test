@@ -1,11 +1,15 @@
 import { ItineraryProvider } from "@/contexts/ItineraryContext"
+import { Toaster } from "@/components/ui/toaster"
 import type React from "react"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <ItineraryProvider>{children}</ItineraryProvider>
+        <ItineraryProvider>
+          {children}
+          <Toaster />
+        </ItineraryProvider>
       </body>
     </html>
   )
@@ -14,3 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 
 import './globals.css'
+
+export const metadata = {
+      generator: 'v0.dev'
+    };

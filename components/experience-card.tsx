@@ -7,32 +7,36 @@ import { useRouter } from "next/navigation"
 interface ExperienceCardProps {
   id: string
   title: string
-  description?: string
-  imageType: "food" | "photo" | "perfume" | "craft" | "tour"
+  imageType: string
+  rating?: string
+  reviews?: number
   duration: string
   price: number
-  isNew: boolean
+  isNew?: boolean
   city: string
   category: string
-  rating?: number
-  imageUrl?: string
-  location?: string
-  addToItinerary: (experience: any) => void
+  addToItinerary: (experience: {
+    id: string
+    title: string
+    duration: string
+    price: number
+    city: string
+    category: string
+    time: string
+  }) => void
 }
 
 export default function ExperienceCard({
   id,
   title,
-  description,
   imageType,
+  rating,
+  reviews,
   duration,
   price,
   isNew,
   city,
   category,
-  rating,
-  imageUrl,
-  location,
   addToItinerary,
 }: ExperienceCardProps) {
   const router = useRouter()
@@ -41,7 +45,8 @@ export default function ExperienceCard({
     const params = new URLSearchParams({
       title,
       imageType,
-      rating: rating?.toString() || "",
+      rating: rating || "",
+      reviews: reviews?.toString() || "",
       duration,
       price: price.toString(),
       isNew: isNew ? "true" : "false",
@@ -53,8 +58,8 @@ export default function ExperienceCard({
 
   // Generate different placeholder images based on the type
   const getPlaceholderImage = (type: string) => {
-    const width = 600
-    const height = 400
+    const width = 200
+    const height = 150
     switch (type) {
       case "food":
         return `/placeholder.svg?height=${height}&width=${width}&text=Food+Experience`
@@ -72,63 +77,73 @@ export default function ExperienceCard({
   }
 
   return (
-    <div className="group relative flex cursor-pointer flex-col gap-2" onClick={handleClick}>
-      <div className="relative aspect-[3/2] w-full overflow-hidden rounded-lg bg-secondary">
-        <Image
-          src={imageUrl || getPlaceholderImage(imageType)}
-          alt={title}
-          className="object-cover transition-transform group-hover:scale-105"
-          fill
-        />
-        <div className="absolute right-3 top-3 flex gap-2">
-          <button className="rounded-full bg-white/80 p-2 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
-            <Heart className="h-5 w-5" />
-          </button>
-          <button
-            className="rounded-full bg-primary text-primary-foreground p-2"
-            onClick={(e) => {
-              e.stopPropagation()
-              // Suggest a time between 9:00 and 17:00, avoiding meal times
-              const suggestedTime = (() => {
-                const hours = Math.floor(Math.random() * (17 - 9) + 9)
-                const minutes = Math.random() < 0.5 ? "00" : "30"
-                // Avoid meal times (8:00, 13:00, 19:00)
-                if (hours === 13) return "14:00"
-                return `${hours.toString().padStart(2, "0")}:${minutes}`
-              })()
-              addToItinerary({
-                id,
-                title,
-                duration,
-                price,
-                city,
-                category,
-                time: suggestedTime,
-              })
-            }}
-          >
-            <Plus className="h-5 w-5" />
-          </button>
+    <div
+      className="group relative flex cursor-pointer border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+      onClick={handleClick}
+    >
+      <div className="relative h-32 w-32 sm:h-40 sm:w-40 flex-shrink-0">
+        <Image src={getPlaceholderImage(imageType) || "/placeholder.svg"} alt={title} className="object-cover" fill />
+      </div>
+
+      <div className="flex flex-col justify-between p-4 flex-grow">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            {isNew ? (
+              <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-medium">New</span>
+            ) : rating ? (
+              <div className="flex items-center gap-1 text-sm">
+                <span>★ {rating}</span>
+                <span className="text-muted-foreground">({reviews})</span>
+              </div>
+            ) : null}
+            <span className="text-sm text-muted-foreground">{duration}</span>
+          </div>
+
+          <h3 className="font-medium mb-1">{title}</h3>
+          <p className="text-sm text-muted-foreground">{city}</p>
+        </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <p className="font-medium">From ${price} / person</p>
+
+          <div className="flex gap-2">
+            <button
+              className="rounded-full bg-secondary p-2 hover:bg-secondary/90"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Heart className="h-4 w-4" />
+            </button>
+            <button
+              className="rounded-full bg-primary text-primary-foreground p-2 hover:bg-primary/90"
+              onClick={(e) => {
+                e.stopPropagation()
+                const suggestedTime = (() => {
+                  const hours = Math.floor(Math.random() * (17 - 9) + 9)
+                  const minutes = Math.random() < 0.5 ? "00" : "30"
+                  if (hours === 13) return "14:00"
+                  return `${hours.toString().padStart(2, "0")}:${minutes}`
+                })()
+
+                addToItinerary({
+                  id,
+                  title,
+                  duration,
+                  price,
+                  city,
+                  category,
+                  time: suggestedTime,
+                })
+
+                setTimeout(() => {
+                  router.push("/schedule")
+                }, 500)
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        {isNew ? (
-          <div className="flex items-center gap-2">
-            <span className="font-medium">New</span>
-            <span className="text-gray-600">·</span>
-          </div>
-        ) : rating && (
-          <div className="flex items-center gap-2">
-            <span>★ {rating.toFixed(1)}</span>
-            <span className="text-gray-600">·</span>
-          </div>
-        )}
-        <span>{duration}</span>
-      </div>
-      <h3 className="font-medium">{title}</h3>
-      {description && <p className="text-sm text-gray-600 line-clamp-2">{description}</p>}
-      {location && <p className="text-sm text-gray-500">{location}</p>}
-      <p>From ${price} / person</p>
     </div>
   )
 }

@@ -5,6 +5,10 @@ interface CategoryChipsProps {
 }
 
 export default function CategoryChips({ categories, selectedCategories, onToggle }: CategoryChipsProps) {
+  if (!categories || categories.length === 0) {
+    return null // Return null if there are no categories
+  }
+
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Select Categories</label>

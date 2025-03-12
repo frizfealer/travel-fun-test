@@ -1,20 +1,26 @@
 "use client"
 
 import Link from "next/link"
-import { useItinerary } from "../contexts/ItineraryContext"
+import { usePathname } from "next/navigation"
+import { useItinerary } from "@/contexts/ItineraryContext"
+
 interface NavigationProps {
-  activeTab: "explore" | "schedule"
+  activeTab?: "explore" | "schedule"
 }
 
 export default function Navigation({ activeTab }: NavigationProps) {
   const { itinerary } = useItinerary()
+  const pathname = usePathname()
+
+  // If activeTab is not provided, determine it from the pathname
+  const currentTab = activeTab || (pathname === "/schedule" ? "schedule" : "explore")
 
   return (
-    <div className="flex space-x-2 mb-6">
+    <nav className="flex space-x-2 mb-6">
       <Link
         href="/"
         className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-          activeTab === "explore"
+          currentTab === "explore"
             ? "bg-primary text-primary-foreground"
             : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
         }`}
@@ -24,7 +30,7 @@ export default function Navigation({ activeTab }: NavigationProps) {
       <Link
         href="/schedule"
         className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-          activeTab === "schedule"
+          currentTab === "schedule"
             ? "bg-primary text-primary-foreground"
             : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
         }`}
@@ -36,7 +42,7 @@ export default function Navigation({ activeTab }: NavigationProps) {
           </span>
         )}
       </Link>
-    </div>
+    </nav>
   )
 }
 

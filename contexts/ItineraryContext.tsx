@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, type ReactNode } from "react"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Experience {
   id: string
@@ -22,13 +23,41 @@ const ItineraryContext = createContext<ItineraryContextType | undefined>(undefin
 
 export function ItineraryProvider({ children }: { children: ReactNode }) {
   const [itinerary, setItinerary] = useState<Experience[]>([])
+  const { toast } = useToast()
 
   const addToItinerary = (experience: Experience) => {
-    setItinerary((prev) => [...prev, experience])
+    setItinerary((prev) => {
+      // Check if experience already exists
+      if (prev.some((item) => item.id === experience.id)) {
+        toast({
+          title: "Already in schedule",
+          description: "This experience is already in your schedule.",
+        })
+        return prev
+      }
+
+      // Add new experience and sort by time
+      const newItinerary = [...prev, experience].sort((a, b) => {
+        const timeA = a.time.split(":").map(Number)
+        const timeB = b.time.split(":").map(Number)
+        return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1])
+      })
+
+      toast({
+        title: "Added to schedule",
+        description: `${experience.title} has been added to your schedule at ${experience.time}.`,
+      })
+
+      return newItinerary
+    })
   }
 
   const removeFromItinerary = (id: string) => {
     setItinerary((prev) => prev.filter((exp) => exp.id !== id))
+    toast({
+      title: "Removed from schedule",
+      description: "The experience has been removed from your schedule.",
+    })
   }
 
   return (
