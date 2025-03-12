@@ -16,7 +16,7 @@ export const cities = [
 ]
 
 export const categories = {
-  "new-york": ["Food", "Photography", "Arts & Crafts", "Sightseeing"],
+  "new-york": ["Food", "Photography", "Arts & Crafts", "Sightseeing", "Shopping"],
   paris: ["Art", "Cuisine", "History", "Fashion"],
   tokyo: ["Technology", "Anime", "Cuisine", "Traditional Culture"],
   london: ["History", "Theatre", "Music", "Royal Experience"],
