@@ -15,6 +15,15 @@ import RecommendedExperiencesModal from "./recommended-experiences-modal"
 import ActivityChat from "./activity-chat"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 
+interface Experience {
+  title: string;
+  imageUrl: string;
+  duration: string;
+  price: number;
+  city: string;
+  category: string;
+}
+
 type ScheduleItem = {
   id: string
   time: string
@@ -34,6 +43,9 @@ export default function ScheduleAssistant() {
   const [showExperiences, setShowExperiences] = useState(false)
   const [showRecommendations, setShowRecommendations] = useState(false)
   const [selectedTime, setSelectedTime] = useState("")
+  const [cityCategories, setCityCategories] = useState<string[]>([])
+  const [experiences, setExperiences] = useState<Experience[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const defaultSchedule: ScheduleItem[] = [
     { id: "breakfast", time: "08:00", title: "Breakfast", icon: <Coffee className="h-4 w-4" />, isDefault: true },
@@ -41,10 +53,32 @@ export default function ScheduleAssistant() {
     { id: "dinner", time: "19:00", title: "19:00", icon: <UtensilsCrossed className="h-4 w-4" />, isDefault: true },
   ]
 
-  const handleCityChange = (value: string) => {
+  const handleCityChange = async (value: string) => {
     setSelectedCity(value)
     setSelectedCategories([])
     setShowExperiences(false)
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8001/api/py/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ city: value })
+      })
+      if (!response.ok) {
+        // Use default categories as fallback
+        setCityCategories(categories[value as keyof typeof categories] || [])
+        console.warn('Using default categories as fallback')
+        return
+      }
+      const data = await response.json()
+      setCityCategories(data)
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+      // Use default categories as fallback
+      setCityCategories(categories[value as keyof typeof categories] || [])
+    }
   }
 
   const handleCategoryToggle = (category: string) => {
@@ -53,8 +87,35 @@ export default function ScheduleAssistant() {
     )
   }
 
-  const handleFunExperiences = () => {
-    setShowExperiences(true)
+  const handleFunExperiences = async () => {
+    if (!selectedCity || selectedCategories.length === 0) return;
+
+    setIsLoading(true);
+    setShowExperiences(true);
+
+    try {
+      const response = await fetch('http://127.0.0.1:8001/api/py/recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          city: selectedCity,
+          interests: selectedCategories
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch experiences');
+      }
+
+      const data: Experience[] = await response.json();
+      setExperiences(data);
+    } catch (error) {
+      console.error('Error fetching experiences:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   // Get icon based on category
@@ -159,9 +220,9 @@ export default function ScheduleAssistant() {
           <div className="space-y-6">
             <CitySelector onCityChange={handleCityChange} />
 
-            {selectedCity && categories[selectedCity as keyof typeof categories] && (
+            {selectedCity && cityCategories.length > 0 && (
               <CategoryChips
-                categories={categories[selectedCity as keyof typeof categories]}
+                categories={cityCategories}
                 selectedCategories={selectedCategories}
                 onToggle={handleCategoryToggle}
               />
@@ -180,29 +241,29 @@ export default function ScheduleAssistant() {
           {showExperiences && selectedCity && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium">{selectedCategories.length} categories selected</h3>
-              <div className="space-y-4">
-                {selectedCategories.map((category, index) => (
-                  <ExperienceCard
-                    key={index}
-                    id={`${selectedCity}-${category}-${index}`}
-                    title={`${category} Experience in ${cities.find((city) => city.value === selectedCity)?.label}`}
-                    imageType={category.toLowerCase() as "food" | "photo" | "perfume" | "craft" | "tour"}
-                    duration="2-3 hours"
-                    price={Math.floor(Math.random() * 100) + 50}
-                    isNew={Math.random() > 0.5}
-                    city={cities.find((city) => city.value === selectedCity)?.label || ""}
-                    category={category}
-                    addToItinerary={addToItinerary}
-                  />
-                ))}
-              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {experiences.map((experience, index) => (
+                    <ExperienceCard
+                      key={`${experience.category}-${index}`}
+                      id={`${experience.category}-${index}`}
+                      {...experience}
+                      addToItinerary={addToItinerary}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Custom Activity Form */}
           <div>
             <h3 className="text-lg font-medium mb-2">Add Custom Activity</h3>
-            <ActivityChat onSuggestionSelect={() => {}} addToItinerary={addToItinerary} />
+            <ActivityChat onSuggestionSelect={() => { }} addToItinerary={addToItinerary} />
           </div>
         </div>
 
@@ -220,9 +281,8 @@ export default function ScheduleAssistant() {
                 <React.Fragment key={timeSlot}>
                   <div className="relative pl-8">
                     <div
-                      className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-4 border-background ${
-                        items[0].isDefault ? "bg-secondary" : "bg-primary"
-                      }`}
+                      className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-4 border-background ${items[0].isDefault ? "bg-secondary" : "bg-primary"
+                        }`}
                     ></div>
 
                     {hasMultipleItems ? (

@@ -502,7 +502,7 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask for activity suggestions... ..."
+          placeholder="Ask for activity suggestions..."
           className="flex-1"
         />
         <Button type="submit" size="icon" disabled={isLoading}>
