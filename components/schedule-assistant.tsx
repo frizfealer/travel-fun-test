@@ -102,6 +102,7 @@ export default function ScheduleAssistant() {
         body: JSON.stringify({
           city: selectedCity,
           interests: selectedCategories,
+          num_recommendations: selectedCategories.length,
           excluded_recommendations: []
         })
       });

@@ -43,6 +43,10 @@ export function ItineraryProvider({ children }: { children: ReactNode }) {
         return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1])
       })
 
+      // Log the updated itinerary
+      console.log('Experience added to itinerary:', experience)
+      console.log('Updated itinerary:', newItinerary)
+
       toast({
         title: "Added to schedule",
         description: `${experience.title} has been added to your schedule at ${experience.time}.`,
@@ -53,7 +57,18 @@ export function ItineraryProvider({ children }: { children: ReactNode }) {
   }
 
   const removeFromItinerary = (id: string) => {
-    setItinerary((prev) => prev.filter((exp) => exp.id !== id))
+    setItinerary((prev) => {
+      // Find the experience being removed for logging
+      const experienceToRemove = prev.find(exp => exp.id === id)
+      const updatedItinerary = prev.filter((exp) => exp.id !== id)
+
+      // Log the removal and updated itinerary
+      console.log('Experience removed from itinerary:', experienceToRemove)
+      console.log('Updated itinerary after removal:', updatedItinerary)
+
+      return updatedItinerary
+    })
+
     toast({
       title: "Removed from schedule",
       description: "The experience has been removed from your schedule.",
