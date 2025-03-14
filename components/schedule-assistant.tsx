@@ -101,11 +101,13 @@ export default function ScheduleAssistant() {
         },
         body: JSON.stringify({
           city: selectedCity,
-          interests: selectedCategories
+          interests: selectedCategories,
+          excluded_recommendations: []
         })
       });
 
       if (!response.ok) {
+        console.error('Failed to fetch experiences:', await response.text());
         throw new Error('Failed to fetch experiences');
       }
 
