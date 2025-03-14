@@ -384,6 +384,7 @@ export default function ScheduleAssistant() {
         onOpenChange={setShowRecommendations}
         selectedTime={selectedTime}
         cityValue={selectedCity || undefined}
+        selectedCategories={selectedCategories}
       />
     </div>
   )
