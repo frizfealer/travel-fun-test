@@ -18,6 +18,16 @@ interface Experience {
   category: string;
 }
 
+// Add helper function to handle image URLs
+const getImageUrl = (imageData: string) => {
+  // Check if the string is already a complete data URI or a regular URL
+  if (imageData.startsWith('data:') || imageData.startsWith('http')) {
+    return imageData;
+  }
+  // Assume it's a base64 string and add the data URI prefix
+  return `data:image/jpeg;base64,${imageData}`;
+};
+
 interface RecommendedExperiencesModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -191,7 +201,7 @@ export default function RecommendedExperiencesModal({
                         {rec.imageUrl ? (
                           <div
                             className="absolute inset-0 bg-cover bg-center"
-                            style={{ backgroundImage: `url(${rec.imageUrl})` }}
+                            style={{ backgroundImage: `url(${getImageUrl(rec.imageUrl)})` }}
                           />
                         ) : (
                           <div className="absolute inset-0 bg-muted" />
