@@ -219,7 +219,6 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
           session_id: null
         }),
         signal: controller.signal,
-        credentials: 'include', // Add credentials for cookie support
       });
 
       clearTimeout(timeoutId);
@@ -435,8 +434,6 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
           session_id: sessionId,
         }),
         signal: controller.signal,
-        // Add credentials if your backend uses cookies
-        credentials: 'include',
       });
 
       clearTimeout(timeoutId);
@@ -457,7 +454,6 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
               messages: [{ role: "user", content: input }],
               session_id: sessionId,
             }),
-            credentials: 'include',
           });
 
           if (!retryResponse.ok) {
@@ -649,7 +645,6 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
           messages: [{ role: "system", content: "verify_session" }],
           session_id: sessionId,
         }),
-        credentials: 'include',
       });
 
       if (!response.ok) {
