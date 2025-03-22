@@ -208,6 +208,8 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+      console.log(`Making request to API: ${apiUrl}`);
+
       const response = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
         method: 'POST',
         headers: {
@@ -216,7 +218,8 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
         body: JSON.stringify({
           session_id: null
         }),
-        signal: controller.signal
+        signal: controller.signal,
+        credentials: 'include', // Add credentials for cookie support
       });
 
       clearTimeout(timeoutId);
@@ -226,7 +229,8 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
       }
 
       const data: ConversationResponse = await response.json();
-      console.log("Received response from API:", data);
+      console.log("Received initialization response from API:", data);
+      console.log("New session ID:", data.session_id);
 
       // Save the session ID
       setSessionId(data.session_id);
@@ -416,6 +420,11 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
       // Only send the current message, not the full history
       // The backend should maintain the conversation state using the session_id
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+
+      // Create an AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
       const response = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
         method: 'POST',
         headers: {
@@ -425,13 +434,66 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
           messages: [{ role: "user", content: input }],
           session_id: sessionId,
         }),
+        signal: controller.signal,
+        // Add credentials if your backend uses cookies
+        credentials: 'include',
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Failed to get response from conversation API');
+        // For specific error handling for session issues
+        if (response.status === 401 || response.status === 403) {
+          console.warn('Session expired or invalid, attempting to recover...');
+          // Try to recover the session by re-initializing
+          await initializeConversation();
+          // Now try again with the new session ID
+          const retryResponse = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messages: [{ role: "user", content: input }],
+              session_id: sessionId,
+            }),
+            credentials: 'include',
+          });
+
+          if (!retryResponse.ok) {
+            throw new Error(`Retry failed: ${retryResponse.status} ${retryResponse.statusText}`);
+          }
+
+          const retryData: ConversationResponse = await retryResponse.json();
+          // Update session ID from the backend
+          setSessionId(retryData.session_id);
+
+          // Handle itinerary data if available
+          if (retryData.itinerary && retryData.itinerary.days && retryData.itinerary.days.length > 0 && onItineraryUpdate) {
+            onItineraryUpdate(retryData.itinerary);
+          }
+
+          // Add the response from the assistant
+          const assistantMessage: Message = {
+            id: Date.now().toString(),
+            content: retryData.response,
+            role: "assistant",
+          };
+
+          setMessages((prev) => [...prev, assistantMessage]);
+          return;
+        }
+
+        throw new Error(`Failed to get response from conversation API: ${response.status} ${response.statusText}`);
       }
 
       const data: ConversationResponse = await response.json();
+      console.log("Received API response with session ID:", data.session_id);
+
+      // Check if we received a different session ID than what we sent
+      if (sessionId && data.session_id !== sessionId) {
+        console.warn("Backend returned a new session ID. Previous session may have expired.");
+      }
 
       // Update session ID from the backend
       setSessionId(data.session_id);
@@ -552,6 +614,65 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
       </div>
     )
   }
+
+  // Add this effect to detect if the app has been inactive/hidden and needs to verify session when returning
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && sessionId) {
+        console.log('App became visible, verifying session...');
+        verifySession();
+      }
+    };
+
+    // Listen for visibility changes (tab switching, etc.)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [sessionId]);
+
+  // Function to verify if the current session is still valid
+  const verifySession = async () => {
+    if (!sessionId) return;
+
+    try {
+      console.log('Verifying session validity...');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+
+      const response = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [{ role: "system", content: "verify_session" }],
+          session_id: sessionId,
+        }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        console.log('Session verification failed, reinitializing...');
+        // Reinitialize if verification failed
+        clearSession();
+        return;
+      }
+
+      const data = await response.json();
+
+      // If we get a different session ID back, update ours
+      if (data.session_id !== sessionId) {
+        console.log('Session ID changed during verification, updating...');
+        setSessionId(data.session_id);
+      } else {
+        console.log('Session verified successfully');
+      }
+    } catch (error) {
+      console.error('Error verifying session:', error);
+      // Don't clear session on network errors to avoid disrupting the user experience
+    }
+  };
 
   // Update the JSX to render experience cards in chat messages
   return (
