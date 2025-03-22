@@ -205,7 +205,7 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
 
       // Create an AbortController for timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
       const response = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
