@@ -61,10 +61,9 @@ export default function TravelFun() {
                 key={index}
                 id={`${selectedCity}-${category}-${index}`}
                 title={`${category} Experience in ${cities.find((city) => city.value === selectedCity)?.label}`}
-                imageType={category.toLowerCase() as "food" | "photo" | "perfume" | "craft" | "tour"}
+                imageUrl={`/placeholder.svg?height=150&width=200&text=${category.replace(/\s+/g, '+')}+Experience`}
                 duration="2-3 hours"
                 price={Math.floor(Math.random() * 100) + 50}
-                isNew={Math.random() > 0.5}
                 city={cities.find((city) => city.value === selectedCity)?.label || ""}
                 category={category}
                 addToItinerary={addToItinerary}

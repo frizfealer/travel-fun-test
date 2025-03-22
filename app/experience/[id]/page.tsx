@@ -14,15 +14,15 @@ export default function ExperiencePage() {
   const [showCarousel, setShowCarousel] = useState(false)
   const searchParams = useSearchParams()
 
-  const title = searchParams.get("title") || "Experience"
-  const imageType = searchParams.get("imageType") || "default"
-  const rating = searchParams.get("rating") || ""
-  const reviews = searchParams.get("reviews") || ""
-  const duration = searchParams.get("duration") || "2-3 hours"
-  const price = searchParams.get("price") || "50"
-  const isNew = searchParams.get("isNew") === "true"
-  const city = searchParams.get("city") || "Unknown City"
-  const category = searchParams.get("category") || "Experience"
+  const title = searchParams?.get("title") || "Experience"
+  const imageType = searchParams?.get("imageType") || "default"
+  const rating = searchParams?.get("rating") || ""
+  const reviews = searchParams?.get("reviews") || ""
+  const duration = searchParams?.get("duration") || "2-3 hours"
+  const price = searchParams?.get("price") || "50"
+  const isNew = searchParams?.get("isNew") === "true"
+  const city = searchParams?.get("city") || "Unknown City"
+  const category = searchParams?.get("category") || "Experience"
 
   // Preview images for the gallery
   const previewImages = [
