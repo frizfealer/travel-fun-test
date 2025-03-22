@@ -207,7 +207,8 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-      const response = await fetch('http://127.0.0.1:8001/api/py/itinerary-details-conversation', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+      const response = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -414,7 +415,8 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary, onIti
     try {
       // Only send the current message, not the full history
       // The backend should maintain the conversation state using the session_id
-      const response = await fetch('http://127.0.0.1:8001/api/py/itinerary-details-conversation', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+      const response = await fetch(`${apiUrl}/api/py/itinerary-details-conversation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

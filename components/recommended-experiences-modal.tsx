@@ -85,15 +85,16 @@ export default function RecommendedExperiencesModal({
     const numRecommendations = Math.max(DEFAULT_NUM_RECOMMENDATIONS, selectedCategories.length)
 
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/py/recommendations', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+      const response = await fetch(`${apiUrl}/api/py/recommendations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           city: cityValue,
-          num_recommendations: numRecommendations,
           interests: selectedCategories,
+          num_recommendations: numRecommendations,
           excluded_recommendations: excludedExperiences
         })
       })

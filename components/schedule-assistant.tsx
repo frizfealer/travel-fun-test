@@ -79,7 +79,8 @@ export default function ScheduleAssistant() {
     setShowExperiences(false)
 
     try {
-      const response = await fetch(`http://127.0.0.1:8001/api/py/categories`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+      const response = await fetch(`${apiUrl}/api/py/categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +115,8 @@ export default function ScheduleAssistant() {
     setShowExperiences(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/py/recommendations', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+      const response = await fetch(`${apiUrl}/api/py/recommendations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
