@@ -4,7 +4,7 @@ import React from "react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Clock, MapPin, X, Coffee, UtensilsCrossed, Landmark } from "lucide-react"
+import { Clock, MapPin, X, Coffee, UtensilsCrossed, Landmark, Car } from "lucide-react"
 import { useItinerary } from "@/contexts/ItineraryContext"
 import CitySelector, { cities, categories } from "./city-selector"
 import CategoryChips from "./category-chips"
@@ -14,6 +14,7 @@ import RecommendedExperiencesModal from "./recommended-experiences-modal"
 // Import the ActivityChat component at the top of the file
 import ActivityChat from "./activity-chat"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Experience {
   title: string;
@@ -22,6 +23,23 @@ interface Experience {
   price: number;
   city: string;
   category: string;
+}
+
+// Define the backend itinerary structure
+interface ItineraryItem {
+  time: string;
+  title: string;
+  type: string;
+}
+
+interface ItineraryDay {
+  Day: number;
+  "day-description": string;
+  "day-itinerary": ItineraryItem[];
+}
+
+interface BackendItinerary {
+  days: ItineraryDay[];
 }
 
 type ScheduleItem = {
@@ -46,6 +64,8 @@ export default function ScheduleAssistant() {
   const [cityCategories, setCityCategories] = useState<string[]>([])
   const [experiences, setExperiences] = useState<Experience[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [backendItinerary, setBackendItinerary] = useState<BackendItinerary | null>(null)
+  const [selectedDayTab, setSelectedDayTab] = useState("1")
 
   const defaultSchedule: ScheduleItem[] = [
     { id: "breakfast", time: "08:00", title: "Breakfast", icon: <Coffee className="h-4 w-4" />, isDefault: true },
@@ -121,11 +141,20 @@ export default function ScheduleAssistant() {
     }
   }
 
-  // Get icon based on category
-  const getCategoryIcon = (category: string) => {
-    switch (category.toLowerCase()) {
+  // Get icon based on type or category
+  const getItemIcon = (type: string, category?: string) => {
+    if (type === "commute") {
+      return <Car className="h-4 w-4" />
+    }
+
+    switch (category?.toLowerCase()) {
+      case "food":
+        return <UtensilsCrossed className="h-4 w-4" />
       case "history":
         return <Landmark className="h-4 w-4" />
+      case "coffee":
+      case "breakfast":
+        return <Coffee className="h-4 w-4" />
       default:
         return <MapPin className="h-4 w-4" />
     }
@@ -141,7 +170,7 @@ export default function ScheduleAssistant() {
       duration: item.duration,
       price: item.price,
       category: item.category,
-      icon: getCategoryIcon(item.category),
+      icon: getItemIcon("event", item.category),
     })),
   ].sort((a, b) => {
     const getMinutes = (time: string) => {
@@ -212,7 +241,188 @@ export default function ScheduleAssistant() {
     setShowRecommendations(true)
   }
 
+  // Update the ActivityChat component to handle itinerary responses
+  const handleItineraryUpdate = (backendItinerary: BackendItinerary) => {
+    // Update the itinerary without resetting other state
+    setBackendItinerary(backendItinerary)
+
+    // Set the selected day tab to the first day if not already set
+    if (backendItinerary.days && backendItinerary.days.length > 0) {
+      // Only update the selectedDayTab if we didn't have a valid tab already
+      // This ensures we don't reset to Day 1 if user is viewing a later day
+      if (!selectedDayTab || !backendItinerary.days.some(day => day.Day.toString() === selectedDayTab)) {
+        setSelectedDayTab(backendItinerary.days[0].Day.toString())
+      }
+    }
+  }
+
   const timeSlots = getTimeSlots()
+
+  // Render backend itinerary if available, otherwise show standard itinerary
+  const renderItinerary = () => {
+    if (backendItinerary && backendItinerary.days && backendItinerary.days.length > 0) {
+      return (
+        <div className="space-y-4">
+          <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab}>
+            <TabsList className="mb-4">
+              {backendItinerary.days.map((day) => (
+                <TabsTrigger key={day.Day} value={day.Day.toString()}>
+                  Day {day.Day}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {backendItinerary.days.map((day) => (
+              <TabsContent key={day.Day} value={day.Day.toString()}>
+                <div className="bg-card rounded-lg p-4 shadow-sm mb-4">
+                  <h4 className="font-medium mb-2">Day {day.Day}: {day["day-description"]}</h4>
+                </div>
+
+                <div className="space-y-4 relative max-w-md">
+                  <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-200"></div>
+
+                  {day["day-itinerary"].map((item, index) => (
+                    <div key={index} className="relative pl-8">
+                      <div
+                        className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-4 border-background ${item.type === "commute" ? "bg-secondary" : "bg-primary"
+                          }`}
+                      ></div>
+
+                      <div className="bg-card rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Clock className="mr-2 h-4 w-4" />
+                            <span>{item.time}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center mb-1">
+                          {getItemIcon(item.type)}
+                          <h4 className="font-medium text-lg ml-2">{item.title}</h4>
+                        </div>
+
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <span className="capitalize">{item.type}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
+      )
+    }
+
+    // Default timeline render logic
+    return (
+      <div className="space-y-4 relative max-w-md">
+        <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-200"></div>
+
+        {sortedTimeSlots.map((timeSlot) => {
+          const items = groupedScheduleItems[timeSlot]
+          const hasMultipleItems = items.length > 1 && !items[0].isDefault
+
+          return (
+            <React.Fragment key={timeSlot}>
+              <div className="relative pl-8">
+                <div
+                  className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-4 border-background ${items[0].isDefault ? "bg-secondary" : "bg-primary"
+                    }`}
+                ></div>
+
+                {hasMultipleItems ? (
+                  <div className="bg-card rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center text-sm text-muted-foreground mb-2">
+                      <Clock className="mr-2 h-4 w-4" />
+                      <span>{timeSlot}</span>
+                    </div>
+
+                    <Carousel className="w-full">
+                      <CarouselContent>
+                        {items.map((item) => (
+                          <CarouselItem key={item.id}>
+                            <div className="bg-background rounded-lg border p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center">
+                                  {item.icon}
+                                  <h4 className="font-medium text-lg ml-2">{item.title}</h4>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => removeFromItinerary(item.id)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              {item.location && (
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                  <MapPin className="mr-2 h-4 w-4" />
+                                  <span>{item.location}</span>
+                                </div>
+                              )}
+                              {item.duration && (
+                                <div className="text-sm text-muted-foreground mt-1">Duration: {item.duration}</div>
+                              )}
+                              {item.price && !item.isDefault && (
+                                <div className="mt-2 text-sm font-medium">From ${item.price} / person</div>
+                              )}
+                            </div>
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      <CarouselPrevious className="left-1 h-7 w-7" />
+                      <CarouselNext className="right-1 h-7 w-7" />
+                    </Carousel>
+                  </div>
+                ) : (
+                  <div className="bg-card rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Clock className="mr-2 h-4 w-4" />
+                        <span>{items[0].time}</span>
+                        {items[0].duration && !items[0].isDefault && (
+                          <>
+                            <span className="mx-2">·</span>
+                            <span>{items[0].duration}</span>
+                          </>
+                        )}
+                      </div>
+                      {!items[0].isDefault && (
+                        <Button variant="ghost" size="sm" onClick={() => removeFromItinerary(items[0].id)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center mb-1">
+                      {items[0].icon}
+                      <h4 className="font-medium text-lg ml-2">{items[0].title}</h4>
+                    </div>
+                    {items[0].location && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <MapPin className="mr-2 h-4 w-4" />
+                        <span>{items[0].location}</span>
+                      </div>
+                    )}
+                    {items[0].price && !items[0].isDefault && (
+                      <div className="mt-2 text-sm font-medium">From ${items[0].price} / person</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {timeSlots.find((slot) => slot.afterId === items[0].id) && (
+                <AddExperienceCard
+                  time={timeSlots.find((slot) => slot.afterId === items[0].id)!.time}
+                  onClick={() =>
+                    handleAddExperienceClick(timeSlots.find((slot) => slot.afterId === items[0].id)!.time)
+                  }
+                />
+              )}
+            </React.Fragment>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className="mt-8">
@@ -265,118 +475,19 @@ export default function ScheduleAssistant() {
 
           {/* Custom Activity Form */}
           <div>
-            <h3 className="text-lg font-medium mb-2">Add Custom Activity</h3>
-            <ActivityChat onSuggestionSelect={() => { }} addToItinerary={addToItinerary} />
+            <h3 className="text-lg font-medium mb-2">Chat with your schedule assistant</h3>
+            <ActivityChat
+              onSuggestionSelect={() => { }}
+              addToItinerary={addToItinerary}
+              onItineraryUpdate={handleItineraryUpdate}
+            />
           </div>
         </div>
 
         {/* Timeline */}
         <div>
           <h3 className="text-lg font-medium mb-4">Your Itinerary</h3>
-          <div className="space-y-4 relative max-w-md">
-            <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-200"></div>
-
-            {sortedTimeSlots.map((timeSlot) => {
-              const items = groupedScheduleItems[timeSlot]
-              const hasMultipleItems = items.length > 1 && !items[0].isDefault
-
-              return (
-                <React.Fragment key={timeSlot}>
-                  <div className="relative pl-8">
-                    <div
-                      className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-4 border-background ${items[0].isDefault ? "bg-secondary" : "bg-primary"
-                        }`}
-                    ></div>
-
-                    {hasMultipleItems ? (
-                      <div className="bg-card rounded-lg p-4 shadow-sm">
-                        <div className="flex items-center text-sm text-muted-foreground mb-2">
-                          <Clock className="mr-2 h-4 w-4" />
-                          <span>{timeSlot}</span>
-                        </div>
-
-                        <Carousel className="w-full">
-                          <CarouselContent>
-                            {items.map((item) => (
-                              <CarouselItem key={item.id}>
-                                <div className="bg-background rounded-lg border p-3">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center">
-                                      {item.icon}
-                                      <h4 className="font-medium text-lg ml-2">{item.title}</h4>
-                                    </div>
-                                    <Button variant="ghost" size="sm" onClick={() => removeFromItinerary(item.id)}>
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  {item.location && (
-                                    <div className="flex items-center text-sm text-muted-foreground">
-                                      <MapPin className="mr-2 h-4 w-4" />
-                                      <span>{item.location}</span>
-                                    </div>
-                                  )}
-                                  {item.duration && (
-                                    <div className="text-sm text-muted-foreground mt-1">Duration: {item.duration}</div>
-                                  )}
-                                  {item.price && !item.isDefault && (
-                                    <div className="mt-2 text-sm font-medium">From ${item.price} / person</div>
-                                  )}
-                                </div>
-                              </CarouselItem>
-                            ))}
-                          </CarouselContent>
-                          <CarouselPrevious className="left-1 h-7 w-7" />
-                          <CarouselNext className="right-1 h-7 w-7" />
-                        </Carousel>
-                      </div>
-                    ) : (
-                      <div className="bg-card rounded-lg p-4 shadow-sm">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Clock className="mr-2 h-4 w-4" />
-                            <span>{items[0].time}</span>
-                            {items[0].duration && !items[0].isDefault && (
-                              <>
-                                <span className="mx-2">·</span>
-                                <span>{items[0].duration}</span>
-                              </>
-                            )}
-                          </div>
-                          {!items[0].isDefault && (
-                            <Button variant="ghost" size="sm" onClick={() => removeFromItinerary(items[0].id)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <div className="flex items-center mb-1">
-                          {items[0].icon}
-                          <h4 className="font-medium text-lg ml-2">{items[0].title}</h4>
-                        </div>
-                        {items[0].location && (
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="mr-2 h-4 w-4" />
-                            <span>{items[0].location}</span>
-                          </div>
-                        )}
-                        {items[0].price && !items[0].isDefault && (
-                          <div className="mt-2 text-sm font-medium">From ${items[0].price} / person</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {timeSlots.find((slot) => slot.afterId === items[0].id) && (
-                    <AddExperienceCard
-                      time={timeSlots.find((slot) => slot.afterId === items[0].id)!.time}
-                      onClick={() =>
-                        handleAddExperienceClick(timeSlots.find((slot) => slot.afterId === items[0].id)!.time)
-                      }
-                    />
-                  )}
-                </React.Fragment>
-              )
-            })}
-          </div>
+          {renderItinerary()}
         </div>
       </div>
 

@@ -58,20 +58,90 @@ interface ActivityChatProps {
     category: string
     time: string
   }) => void
+  onItineraryUpdate?: (itinerary: {
+    days: Array<{
+      Day: number
+      "day-description": string
+      "day-itinerary": Array<{
+        time: string
+        title: string
+        type: string
+      }>
+    }>
+  }) => void
+}
+
+// Add this interface for the API response
+interface ConversationResponse {
+  response: string;
+  users_itinerary_details: any[];
+  itinerary: {
+    days: Array<{
+      Day: number
+      "day-description": string
+      "day-itinerary": Array<{
+        time: string
+        title: string
+        type: string
+      }>
+    }>
+  };
+  session_id: string;
 }
 
 // Make sure to use the addToItinerary prop in the component
-export default function ActivityChat({ onSuggestionSelect, addToItinerary }: ActivityChatProps) {
+export default function ActivityChat({ onSuggestionSelect, addToItinerary, onItineraryUpdate }: ActivityChatProps) {
   const [input, setInput] = useState("")
+  // Initialize with a default welcome message
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "welcome",
-      content: "Hi there! I can help you plan activities for your trip. What kind of activity are you looking for?",
+      id: "welcome-default",
+      content: "Welcome to Travel Fun! I'm your travel assistant. How can I help you plan your next adventure?",
       role: "assistant",
-    },
+    }
   ])
   const [isLoading, setIsLoading] = useState(false)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<null | HTMLDivElement>(null)
+  const [initialized, setInitialized] = useState(false) // Flag to track if initialization happened
+
+  // Helper function to scroll to the bottom of the chat
+  const scrollToBottom = (forceScroll = false) => {
+    if (scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollElement) {
+        // Get the exact scroll height
+        const scrollHeight = scrollElement.scrollHeight;
+        const clientHeight = scrollElement.clientHeight;
+        const currentScrollTop = scrollElement.scrollTop;
+
+        // Only auto-scroll if the user is already near the bottom (within 100px)
+        // or if forceScroll is true
+        const isNearBottom = scrollHeight - (currentScrollTop + clientHeight) < 100;
+
+        if (isNearBottom || forceScroll) {
+          // Scroll to bottom of the chat area only
+          scrollElement.scrollTop = scrollHeight;
+        }
+      }
+    }
+  };
+
+  // Add debugging for localStorage initialization
+  console.log("Component rendering - checking localStorage");
+  const storedSessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
+  console.log("Stored session ID:", storedSessionId);
+
+  const [sessionId, setSessionId] = useState<string | null>(null); // Initialize as null to ensure initialization happens
+
+  // Function to clear session and get a new one
+  const clearSession = () => {
+    console.log("Clearing session ID from localStorage");
+    localStorage.removeItem('chatSessionId');
+    setSessionId(null);
+    setMessages([]);
+    setInitialized(false);
+    initializeConversation();
+  };
 
   const [selectedExperience, setSelectedExperience] = useState<{
     title: string
@@ -82,12 +152,150 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
     imageType: string
   } | null>(null)
 
-  // Auto-scroll to bottom when messages change
+  // Check localStorage on first mount and set sessionId if exists
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    console.log("First useEffect - Checking localStorage for existing session");
+    if (typeof window !== 'undefined') {
+      const storedId = localStorage.getItem('chatSessionId');
+      console.log("Found stored sessionId:", storedId);
+      if (storedId) {
+        setSessionId(storedId);
+      }
     }
-  }, [messages])
+  }, []);
+
+  // Save sessionId to localStorage whenever it changes
+  useEffect(() => {
+    if (sessionId) {
+      console.log("Saving sessionId to localStorage:", sessionId);
+      localStorage.setItem('chatSessionId', sessionId);
+    }
+  }, [sessionId]);
+
+  // Ensure initialization happens exactly once
+  useEffect(() => {
+    if (initialized) {
+      console.log("Already initialized, skipping");
+      return;
+    }
+
+    console.log("Running one-time initialization check");
+
+    // If we already have messages, we don't need to initialize
+    if (messages.length > 0) {
+      console.log("Messages already exist, marking as initialized");
+      setInitialized(true);
+      return;
+    }
+
+    // If we have a session ID but no messages, we should initialize
+    if (!sessionId && !initialized) {
+      console.log("No session ID and not initialized, triggering initialization");
+      initializeConversation();
+      setInitialized(true);
+    }
+  }, [messages.length, sessionId, initialized]);
+
+  // Function to initialize conversation - moved outside the useEffect for reusability
+  const initializeConversation = async () => {
+    console.log("Running initializeConversation");
+    setIsLoading(true);
+    try {
+      console.log("Making API request to initialize conversation");
+
+      // Create an AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const response = await fetch('http://127.0.0.1:8001/api/py/itinerary-details-conversation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: null
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Failed to initialize conversation: ${response.status} ${response.statusText}`);
+      }
+
+      const data: ConversationResponse = await response.json();
+      console.log("Received response from API:", data);
+
+      // Save the session ID
+      setSessionId(data.session_id);
+
+      // Handle itinerary data if available
+      if (data.itinerary && data.itinerary.days && data.itinerary.days.length > 0 && onItineraryUpdate) {
+        onItineraryUpdate(data.itinerary);
+      }
+
+      // Replace the default welcome message with the API response
+      setMessages([
+        {
+          id: "welcome",
+          content: data.response,
+          role: "assistant",
+        },
+      ]);
+    } catch (error) {
+      console.error('Error initializing conversation:', error);
+      // Keep the default welcome message we already set
+      // No need to set a new message as we already have a default one
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to force send a welcome message (for testing)
+  const forceWelcomeMessage = () => {
+    setMessages([
+      {
+        id: "welcome-forced",
+        content: "Welcome to Travel Fun! I'm your travel assistant. How can I help you plan your next adventure?",
+        role: "assistant",
+      },
+    ]);
+  };
+
+  // Simplified scroll logic - just check for DOM changes
+  useEffect(() => {
+    if (!scrollAreaRef.current) return;
+
+    // Set up a MutationObserver to detect content changes (images loading, etc.)
+    const observer = new MutationObserver(() => scrollToBottom());
+
+    observer.observe(scrollAreaRef.current, {
+      childList: true,
+      subtree: true
+    });
+
+    // Clean up observer on unmount
+    return () => observer.disconnect();
+  }, []);
+
+  // Handle scrolling when messages change - this is important for UI
+  useEffect(() => {
+    // When messages are added or change, scroll (forcefully for new messages)
+    // For user messages and initial assistant messages
+    const forceScroll = messages.length > 0 &&
+      (messages[messages.length - 1].role === "user" || messages.length === 1);
+
+    setTimeout(() => scrollToBottom(forceScroll), 0);
+  }, [messages]);
+
+  // Handle scrolling when loading state changes
+  useEffect(() => {
+    // When loading finishes, force scroll to show the assistant's new message
+    if (!isLoading) {
+      setTimeout(() => scrollToBottom(true), 100);
+    }
+  }, [isLoading]);
 
   // Add this function inside the ActivityChat component
   const generateScheduleSuggestion = (experiences: Message["experiences"]) => {
@@ -187,7 +395,7 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
     setMessages((prev) => [...prev, assistantMessage])
   }
 
-  // Update the handleSend function to include travel planning detection
+  // Update the handleSend function to use the conversation API
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
@@ -201,55 +409,56 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
     setInput("")
     setIsLoading(true)
 
-    // Check if this is a travel planning question
-    const isTravelPlanning = isTravelPlanningQuestion(input)
-    const isTravelQuery =
-      /travel|experience|activity|tour|visit|see|do|explore|adventure|food|restaurant|museum|attraction/i.test(input)
+    // Force scroll is handled by the useEffect watching messages
 
-    setTimeout(() => {
-      if (isTravelPlanning) {
-        // Show travel planning card
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: "I'd be happy to help you plan your trip! Please fill out the details below:",
-          role: "assistant",
-          showTravelPlanningCard: true,
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-      } else if (isTravelQuery) {
-        const experiences = generateSuggestions(input)
-        const scheduleSuggestion = generateScheduleSuggestion(experiences)
+    try {
+      // Only send the current message, not the full history
+      // The backend should maintain the conversation state using the session_id
+      const response = await fetch('http://127.0.0.1:8001/api/py/itinerary-details-conversation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: input }],
+          session_id: sessionId,
+        }),
+      });
 
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: "Here's a suggested schedule for your activities:",
-          role: "assistant",
-          experiences: experiences.map((exp) => ({
-            id: exp.id,
-            title: exp.title,
-            imageType: exp.imageType,
-            duration: exp.duration,
-            price: exp.price,
-            city: exp.location,
-            category: exp.category,
-          })),
-          scheduleSuggestion: scheduleSuggestion,
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-      } else {
-        // Regular text response for non-travel queries
-        const responseContent =
-          "I can help you plan your trip! Ask me about activities, restaurants, or attractions you'd like to explore."
-
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: responseContent,
-          role: "assistant",
-        }
-        setMessages((prev) => [...prev, assistantMessage])
+      if (!response.ok) {
+        throw new Error('Failed to get response from conversation API');
       }
-      setIsLoading(false)
-    }, 1000)
+
+      const data: ConversationResponse = await response.json();
+
+      // Update session ID from the backend
+      setSessionId(data.session_id);
+
+      // Handle itinerary data if available
+      if (data.itinerary && data.itinerary.days && data.itinerary.days.length > 0 && onItineraryUpdate) {
+        onItineraryUpdate(data.itinerary);
+      }
+
+      // Add the response from the assistant
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        content: data.response,
+        role: "assistant",
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error in conversation:', error);
+      // Fallback message if API fails
+      const fallbackMessage: Message = {
+        id: Date.now().toString(),
+        content: "I'm sorry, I'm having trouble connecting right now. Please try again later.",
+        role: "assistant",
+      };
+      setMessages((prev) => [...prev, fallbackMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   // Update the generateSuggestions function to return more detailed experience data
@@ -345,8 +554,28 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
   // Update the JSX to render experience cards in chat messages
   return (
     <div className="border rounded-lg overflow-hidden flex flex-col h-[600px]">
-      <div className="bg-primary p-3">
+      <div className="bg-primary p-3 flex justify-between items-center">
         <h3 className="text-primary-foreground font-medium">Travel Assistant</h3>
+        <div className="flex gap-2">
+          {messages.length === 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={forceWelcomeMessage}
+              className="text-xs"
+            >
+              Debug: Show Welcome
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={clearSession}
+            className="text-xs"
+          >
+            New Conversation
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
@@ -399,6 +628,9 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
                               role: "assistant",
                             },
                           ])
+
+                          // Add back explicit force scroll as this is a direct user action
+                          setTimeout(() => scrollToBottom(true), 0);
                         }}
                       />
                     )}
@@ -468,6 +700,9 @@ export default function ActivityChat({ onSuggestionSelect, addToItinerary }: Act
                                           role: "assistant",
                                         },
                                       ])
+
+                                      // Add back explicit force scroll as this is a direct user action
+                                      setTimeout(() => scrollToBottom(true), 0);
                                     }}
                                   >
                                     <Plus className="h-4 w-4" />
