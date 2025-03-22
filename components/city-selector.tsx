@@ -13,6 +13,7 @@ export const cities = [
   { label: "Dubai", value: "dubai" },
   { label: "Amsterdam", value: "amsterdam" },
   { label: "San Francisco", value: "san-francisco" },
+  { label: "Los Angeles", value: "los-angeles" },
 ]
 
 export const categories = {
@@ -26,6 +27,7 @@ export const categories = {
   dubai: ["Luxury", "Desert Adventure", "Shopping", "Architecture"],
   amsterdam: ["Cycling", "Art", "Canals", "Nightlife"],
   "san-francisco": ["Tech", "Food", "Nature", "LGBTQ+ Culture"],
+  "los-angeles": ["Beach", "Food", "History", "Shopping"],
 }
 
 interface CitySelectorProps {
